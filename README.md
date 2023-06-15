@@ -4,7 +4,7 @@
 
 You can run this demo with interactive instructions by clicking the buttom below.
 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/LoHertel/terraform-demo&cloudshell_git_branch=main&cloudshell_tutorial=project-walkthrough.md)
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/LoHertel/terraform-demo&cloudshell_git_branch=main&cloudshell_tutorial=tutorial.md)
 
 After clicking the button *Open in Google Cloud Shell*, the Google Cloud Shell Editor will open and ask for your authorization to clone this repository. The interactive instructions for this demo will open on the right side of the Cloud Shell Editor.
 *Note: There might be an error message showing that third-party cookies are necessary. You can allow third-party cookies for the Cloud Shell Editor. See [here for more information](https://cloud.google.com/code/docs/shell/limitations#private_browsing_and_disabled_third-party_cookies).*
