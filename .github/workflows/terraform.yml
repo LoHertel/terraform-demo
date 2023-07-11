@@ -1,15 +1,20 @@
 name: "Terraform"
 
 on:
-  push:
+  # push:
+  #   branches:
+  #     - main
+  pull_request:
     branches:
       - main
-  pull_request:
+    paths:
+      - '**.tf'
 
 jobs:
   terraform:
     name: "Terraform"
     runs-on: ubuntu-latest
+    environment: Stage
     permissions:
       pull-requests: write
     steps:
@@ -19,11 +24,17 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
+      - name: Authenticate
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.SERVICE_ACCOUNT_KEY }}'
+
       - name: Terraform Format
         id: fmt
         run: terraform fmt -check
         continue-on-error: true
-
+      
       - name: Terraform Init
         id: init
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
@@ -72,6 +83,6 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve -var="project=${{ vars.GCP_PROJECT_ID }}" -input=false
+      # - name: Terraform Apply
+      #  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #  run: terraform apply -auto-approve -var="project=${{ vars.GCP_PROJECT_ID }}" -input=false
