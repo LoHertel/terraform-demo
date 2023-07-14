@@ -2,10 +2,10 @@ locals {
   # hard coded for each environment
   environment = "stage"
 
-  project          = var.project
-  region           = var.region
-  zone             = "${var.region}-${var.zone_suffix}"
-  name_suffix      = "${local.project}-${local.region}"
+  project     = var.project
+  region      = var.region
+  zone        = "${var.region}-${var.zone_suffix}"
+  name_suffix = "${local.project}-${local.region}"
   buckets = [
     "${local.name_suffix}-data-lake",
     "${local.name_suffix}-data-lake-anon"
