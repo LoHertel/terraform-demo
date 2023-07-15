@@ -80,3 +80,18 @@ Run this command again to verify, that the installation was successful:
 ```bash
 gcloud -v
 ```
+
+## Upgrade Terraform Provider Version
+
+The version of the used provider is locked in the following file: `.terraform.lock.hcl`.  
+Each time the project is initialized (`terraform init`), the locked version will be installed.
+If you want to upgrade the providers to the latest version (which still satisfies the defined version requirement for the provider in `main.tf`), run the following command to update the lock file:
+```bash
+terraform providers lock \
+    -platform=windows_amd64 \
+    -platform=darwin_amd64 \
+    -platform=linux_amd64 \
+    -platform=darwin_arm64 \
+    -platform=linux_arm64
+```
+This command includes hash values of the provider package for all operating systems.
