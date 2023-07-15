@@ -12,6 +12,7 @@ jobs:
   terraform-plan:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         env: [Stage, Prod]
     name: Plan for ${{ matrix.env }}
