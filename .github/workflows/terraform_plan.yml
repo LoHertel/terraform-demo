@@ -9,13 +9,23 @@ on:
       - '**.tf'
 
 jobs:
-  terraform-stage:
-    name: "Plan for Stage"
+  terraform-plan:
     runs-on: ubuntu-latest
-    environment: Stage
+    strategy:
+      matrix:
+        env: [Stage, Prod]
+    name: Plan for ${{ matrix.env }}
     permissions:
       pull-requests: write
     steps:
+      - name: Upper Name for Environment
+        id: env-upper
+        run: ENV_UPPER = $(echo ${{ matrix.env }} | tr [:lower:] [:upper:]) >> $GITHUB_ENV
+      
+      - name: Lower Name for Environment
+        id: env-lower
+        run: ENV_LOWER = $(echo ${{ matrix.env }} | tr [:upper:] [:lower:]) >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -31,23 +41,23 @@ jobs:
       - name: Terraform Format
         id: fmt
         run: terraform fmt -check
-        working-directory: ./stage
+        working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
       - name: Terraform Init
         id: init
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
-        working-directory: ./stage
+        working-directory: ./${{ env.ENV_LOWER }}
       
       - name: Terraform Validate
         id: validate
         run: terraform validate -no-color
-        working-directory: ./stage
+        working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="project=${{ vars.GCP_PROJECT_ID }}" -no-color -input=false
-        working-directory: ./stage
+        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -no-color -input=false
+        working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
 
       - name: Update Pull Request
