@@ -87,5 +87,5 @@ resource "google_compute_firewall" "ssh-server" {
 }
 
 output "ip" {
-  value = "${google_compute_instance.etl-host.network_interface.0.access_config.0.nat_ip}"
+  value = google_compute_instance.etl-host.network_interface.0.access_config.0.nat_ip
 }
