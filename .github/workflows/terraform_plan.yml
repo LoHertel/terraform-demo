@@ -20,11 +20,11 @@ jobs:
     steps:
       - name: Upper Name for Environment
         id: env-upper
-        run: ENV_UPPER = $(echo ${{ matrix.env }} | tr [:lower:] [:upper:]) >> $GITHUB_ENV
+        run: echo "ENV_UPPER=$(echo ${{ matrix.env }} | tr [:lower:] [:upper:])" >> $GITHUB_ENV
       
       - name: Lower Name for Environment
         id: env-lower
-        run: ENV_LOWER = $(echo ${{ matrix.env }} | tr [:upper:] [:lower:]) >> $GITHUB_ENV
+        run: echo "ENV_LOWER=$(echo ${{ matrix.env }} | tr [:upper:] [:lower:])" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -68,7 +68,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `### Staging Environment 🏞
+            const output = `### ${{ matrix.env }} Environment 🏞
             #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
             #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
             #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
