@@ -26,7 +26,6 @@ provider "google" {
 resource "google_storage_bucket" "data-lake-buckets" {
   for_each                    = toset(local.buckets)
   name                        = each.key
-  location                    = local.region
   storage_class               = "STANDARD"
   public_access_prevention    = "enforced"
   uniform_bucket_level_access = true
@@ -42,7 +41,6 @@ resource "google_storage_bucket" "data-lake-buckets" {
 resource "google_compute_instance" "etl-host" {
   name                      = "etl-host-${local.environment}"
   machine_type              = "e2-micro"
-  zone                      = local.zone
   allow_stopping_for_update = true
 
   boot_disk {
