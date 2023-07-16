@@ -23,7 +23,7 @@ provider "google" {
 
 # Data Lake Bucket
 # Ref: https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket
-resource "google_storage_bucket" "data-lake-buckets" {
+resource "google_storage_bucket" "data_lake_buckets" {
   for_each                    = toset(local.buckets)
   name                        = each.key
   storage_class               = "STANDARD"
@@ -38,7 +38,7 @@ resource "google_storage_bucket" "data-lake-buckets" {
 
 
 # Ref: https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance
-resource "google_compute_instance" "etl-host" {
+resource "google_compute_instance" "etl_host" {
   name                      = "etl-host-${local.environment}"
   machine_type              = "e2-micro"
   allow_stopping_for_update = true
@@ -70,7 +70,7 @@ resource "google_compute_network" "vpc_network" {
   auto_create_subnetworks = "true"
 }
 
-resource "google_compute_firewall" "ssh-server" {
+resource "google_compute_firewall" "ssh_server" {
   name    = "default-allow-ssh-${local.environment}"
   network = google_compute_network.vpc_network.name
 
@@ -85,5 +85,5 @@ resource "google_compute_firewall" "ssh-server" {
 }
 
 output "ip" {
-  value = google_compute_instance.etl-host.network_interface.0.access_config.0.nat_ip
+  value = google_compute_instance.etl_host.network_interface.0.access_config.0.nat_ip
 }
