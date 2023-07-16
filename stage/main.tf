@@ -29,7 +29,7 @@ resource "google_storage_bucket" "data-lake-buckets" {
   storage_class               = "STANDARD"
   public_access_prevention    = "enforced"
   uniform_bucket_level_access = true
-  force_destroy               = true
+  force_destroy               = true # Set to "false" in real-world projects! Just set to "true" to clear up this demo resource easier.
 
   versioning {
     enabled = false
