@@ -8,7 +8,7 @@ locals {
   name_suffix = "${local.project}-${local.region}"
   buckets = [
     "${local.name_suffix}-data-lake",
-    "${local.name_suffix}-data-lake-anon"
+    "${local.name_suffix}-data-lake-anonymized"
   ]
 }
 
