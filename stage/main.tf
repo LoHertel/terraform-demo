@@ -83,7 +83,3 @@ resource "google_compute_firewall" "ssh_server" {
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["ssh-server"]
 }
-
-output "ip" {
-  value = google_compute_instance.etl_host.network_interface.0.access_config.0.nat_ip
-}
