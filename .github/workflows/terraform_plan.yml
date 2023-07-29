@@ -51,6 +51,15 @@ jobs:
           # convert bash array to json list
           env_list=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${envs[@]}")             
           echo "changed-envs=$env_list" >> $GITHUB_OUTPUT
+          
+          # print environments
+          echo -n "Detected Environments:"
+          prefix=''
+          for env in ${envs[@]}; do
+              echo -ne "$prefix \033[34m$env\033[0m"
+              prefix=','
+          done
+          echo "" # add line break after environment printout
 
   terraform-plan:
     needs: changed-envs
