@@ -99,22 +99,22 @@ jobs:
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
-      - name: Terraform Status
+      - name: Terraform Summary
         run: |
           echo "::group::Format and Style: ${{ steps.fmt.outcome }}"
-          ${{ steps.fmt.outcome == 'failure' && steps.fmt.outputs.stdout || '' }}
+          echo -e "${{ steps.fmt.outcome == 'failure' && steps.fmt.outputs.stdout || '' }}"
           echo "::endgroup::"
 
           echo "::group::Initialization: ${{ steps.init.outcome }}"
-          ${{ steps.init.outcome == 'failure' && steps.init.outputs.stdout || '' }}
+          echo -e "${{ steps.init.outcome == 'failure' && steps.init.outputs.stdout || '' }}"
           echo "::endgroup::"
 
           echo "::group::Validation: ${{ steps.validate.outcome }}"
-          ${{ steps.validate.outcome == 'failure' && steps.validate.outputs.stdout || '' }}
+          echo -e "${{ steps.validate.outcome != 'failure' && steps.validate.outputs.stdout || '' }}"
           echo "::endgroup::"
 
           echo "::group::Plan: ${{ steps.plan.outcome }}"
-          ${{ steps.plan.outputs.stdout }}
+          echo -e '${{ steps.plan.outputs.stdout }}'
           echo "::endgroup::"
       
       - name: Update Pull Request
