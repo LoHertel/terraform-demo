@@ -46,10 +46,6 @@ jobs:
           
           fi
 
-      - name: print
-        run: echo '${{ steps.set-changed-envs.outputs.changed-envs }}'
-
-
   terraform-plan:
     needs: changed-envs
     name: Plan for ${{ matrix.env }}
@@ -147,12 +143,15 @@ jobs:
           echo -e "${{ steps.plan.outputs.stdout }}"
           echo "::endgroup::"
 
-          echo "::group::Cost Breakdown:"
-          infracost output --path=/tmp/infracost.json \
-                           --format=table \
-                           --show-skipped
-          echo "::endgroup::"
-      
+          ${{ github.event_name == 'workflow_dispatch'  
+            && 'echo "::group::Cost Breakdown:"
+                infracost output --path=/tmp/infracost.json \
+                                 --format=table \
+                                 --show-skipped
+                echo "::endgroup::"'
+            || ''
+          }}
+
       - name: Update Pull Request
         uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
