@@ -111,16 +111,17 @@ After having setup your local environment, you can follow the tutorial.
 
 * [Upgrade Terraform Provider Versions](#upgrade-terraform-provider-versions)
 * [Manage Multiple Versions of Terraform](#manage-multiple-versions-of-terraform)
+* [Auto-Formatter as Pre-Commit Hook](#auto-formatter-as-pre-commit-hook)
 * [Generate Documentation from Terraform Code](#generate-documentation-from-terraform-code)
 * [Best Practices Guides](#best-practices-guides)
 
 ### Upgrade Terraform Provider Versions
 
 The versions of the used providers are locked in the following file for each code base: `.terraform.lock.hcl`. 
-At the moment, the versions of the used remote modules are not locked. Terraform will always select the newest available module version that meets the specified version constraints in `main.tf`. 
+At the moment, only the used providers are locked, the versions of the used remote modules are not locked. For modules, Terraform will always select the newest available module version that meets the specified version constraints in `main.tf`. For locked providers, Terraform will always load the locked version in `.terraform.lock.hcl`.
 
-Each time the project is initialized (`terraform init`), the locked provider versions will be installed.
-If you want to upgrade providers to the newest version (which still satisfies the version requirements defined in `main.tf`), run the following command to upgrade the lock file (it will also upgrade your state file to be compatible with the new provider versions):
+Each time the project is initialized (`terraform init`), the locked provider versions will be installed. This ensures that all team members and CI pipelines use an identical provider version.
+If you want to upgrade providers to the newest version (which still satisfies the version requirements defined in `main.tf`), run the following command to upgrade the lock file (and it will also upgrade your state file to be compatible with the new provider versions):
 ```bash
 terraform init -upgrade &&
 terraform providers lock \
@@ -141,6 +142,38 @@ Consult the Terraform documentation for more information on the [dependency lock
 
 When you want to test your codebase with a newer Terraform version it comes handy using `tfenv` as Terraform version manager. It helps too, when you need to work on multiple projects which require different versions of Terraform.
 More information: https://github.com/tfutils/tfenv 
+
+### Auto-Formatter as Pre-Commit Hook
+
+You could activate a pre-commit hook, which automatically formats your terraform code, when you make a git commit.
+
+Create a file `.git/hooks/pre-commit` if it doesnt exist and make it excecutable:
+```bash
+[[ -f .git/hooks/pre-commit ]] || { touch .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit; }
+```
+
+Paste the following code into `.git/hooks/pre-commit` with your prefered editor:
+```bash
+#!/bin/sh
+
+# Auto-Formatting Terraform Code 
+STAGED_TF_FILES=$(git diff-index --cached --name-only --diff-filter=AM HEAD | sed 's| |\\ |g' | grep -E '\.tf$')
+
+if [ ${#STAGED_TF_FILES} -gt 0 ] # if files found
+then 
+    
+    FORMATTED_FILES=$(terraform fmt $STAGED_TF_FILES)
+
+    if [ ${#FORMATTED_FILES} -gt 0 ] # if files formatted
+    then
+        
+        git add -f $FORMATTED_FILES
+        echo "auto-formatted for commit: $FORMATTED_FILES"
+
+    fi
+fi
+```
+
 
 ### Generate Documentation from Terraform Code
 
