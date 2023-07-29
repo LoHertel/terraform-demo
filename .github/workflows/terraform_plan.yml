@@ -102,15 +102,15 @@ jobs:
       - name: Terraform Status
         run: |
           echo "::group::Format and Style: ${{ steps.fmt.outcome }}"
-          ${{ steps.fmt.outcome == 'failure' && steps.fmt.outputs.stdout }}
+          ${{ steps.fmt.outcome == 'failure' && steps.fmt.outputs.stdout || '' }}
           echo "::endgroup::"
 
           echo "::group::Initialization: ${{ steps.init.outcome }}"
-          ${{ steps.init.outcome == 'failure' && steps.init.outputs.stdout }}
+          ${{ steps.init.outcome == 'failure' && steps.init.outputs.stdout || '' }}
           echo "::endgroup::"
 
           echo "::group::Validation: ${{ steps.validate.outcome }}"
-          ${{ steps.validate.outcome == 'failure' && steps.validate.outputs.stdout }}
+          ${{ steps.validate.outcome == 'failure' && steps.validate.outputs.stdout || '' }}
           echo "::endgroup::"
 
           echo "::group::Plan: ${{ steps.plan.outcome }}"
