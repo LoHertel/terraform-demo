@@ -65,8 +65,57 @@ jobs:
         id: env-lower
         run: echo "ENV_LOWER=$(echo ${{ matrix.env }} | tr [:upper:] [:lower:])" >> $GITHUB_ENV
 
-      - name: Checkout
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout Base Branch
         uses: actions/checkout@v3
+        if: github.event_name == 'pull_request'
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      # Generate Infracost JSON file as the baseline.
+      - name: Generate Infracost cost estimate baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost breakdown --path=. \
+                              --format=json \
+                              --out-file=/tmp/infracost-base.json
+        working-directory: ./${{ env.ENV_LOWER }}
+
+      - name: Checkout PR Branch
+        uses: actions/checkout@v3
+
+      # Generate an Infracost diff and save it to a JSON file.
+      - name: Generate Infracost diff
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost diff --path=. \
+                         --format=json \
+                         --compare-to=/tmp/infracost-base.json \
+                         --out-file=/tmp/infracost.json
+        working-directory: ./${{ env.ENV_LOWER }}
+      
+      - name: Post Infracost comment
+        if: github.event_name == 'pull_request'
+        run: |
+            infracost comment github --path=/tmp/infracost.json \
+                                     --repo=$GITHUB_REPOSITORY \
+                                     --github-token=${{github.token}} \
+                                     --pull-request=${{github.event.pull_request.number}} \
+                                     --behavior=update
+
+      # Generate Infracost JSON file if workflow started manually
+      - name: Generate Infracost cost estimate
+        id: cost
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          infracost breakdown --path=. \
+                              --format=table \
+                              --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
+        working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -121,6 +170,11 @@ jobs:
           echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.plan.outcome }}\033[0m"
           echo -e "${{ steps.plan.outputs.stderr }}"
           echo -e "${{ steps.plan.outputs.stdout }}"
+          echo "::endgroup::"
+
+          echo -e "::group::Cost Breakdown: ${{ steps.cost.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.cost.outcome }}\033[0m"
+          echo -e "${{ steps.cost.outputs.stderr }}"
+          echo -e "${{ steps.cost.outputs.stdout }}"
           echo "::endgroup::"
       
       - name: Update Pull Request
