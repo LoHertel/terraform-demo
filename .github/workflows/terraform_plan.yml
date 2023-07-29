@@ -165,30 +165,38 @@ jobs:
           script: |
             const format_output = `
             <details><summary>Show Format and Style Errors</summary>
-            \`\`\`diff\n
+
+            \`\`\`\n
             ${process.env.FORMAT} 
             \`\`\`
+
             </details>`;
 
             const init_output = `
             <details><summary>Show Output</summary>
-            \`\`\`diff\n
+
+            \`\`\`\n
             ${process.env.INIT} 
             \`\`\`
+
             </details>`;
 
             const validate_output = `
             <details><summary>Show Validation Errors</summary>
-            \`\`\`diff\n
+
+            \`\`\`\n
             ${process.env.VALIDATE} 
             \`\`\`
+
             </details>`;
 
             const plan_output = `
             <details><summary>Show Plan</summary>
-            \`\`\`diff\n
+
+            \`\`\`terraform\n
             ${process.env.PLAN} 
             \`\`\`
+
             </details>`;
 
             const output = `## 🏞 ${{ matrix.env }} - Terraform Config
