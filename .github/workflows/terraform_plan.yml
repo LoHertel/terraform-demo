@@ -26,40 +26,25 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           filters: |
-            stage: 
-              - 'stage/**'
-              - 'modules/**'
-            prod:
-              - 'prod/**'
-              - 'modules/**'
+            Stage: 
+              - 'stage/**.tf'
+              - 'modules/**.tf'
+            Prod:
+              - 'prod/**.tf'
+              - 'modules/**.tf'
 
       - name: Set Changed Environments
         id: set-changed-envs
         run: |
           # detect changed terraform environment definitions in pull request
           if [ ${{ github.event_name }} = 'pull_request' ]; then
-            envs=()
-            [ ${{ steps.filter.outputs.stage }} = 'true' ] && envs+=('Stage')
-            [ ${{ steps.filter.outputs.prod }} = 'true' ] && envs+=('Prod')
+            echo "changed-envs=${{ steps.filter.outputs.changes }}" >> $GITHUB_OUTPUT
           
-          # if workflow started manually, use all terraform environments
+          # if workflow was started manually, use all terraform environments
           else
-            envs=('Stage' 'Prod')
+            echo "changed-envs=['Stage','Prod']" >> $GITHUB_OUTPUT
           
           fi
-          
-          # convert bash array to json list
-          env_list=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${envs[@]}")             
-          echo "changed-envs=$env_list" >> $GITHUB_OUTPUT
-          
-          # print environments
-          echo -n "Detected Environments:"
-          prefix=''
-          for env in ${envs[@]}; do
-              echo -ne "$prefix \033[34m$env\033[0m"
-              prefix=','
-          done
-          echo "" # add line break after environment printout
 
   terraform-plan:
     needs: changed-envs
