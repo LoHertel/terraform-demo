@@ -137,7 +137,7 @@ jobs:
 
       - name: Terraform Format
         id: fmt
-        run: terraform fmt -check -diff -recursive . ../modules
+        run: terraform fmt -check -diff -recursive -no-color . ../modules
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
@@ -148,12 +148,14 @@ jobs:
       
       - name: Terraform Validate
         id: validate
-        run: terraform validate
+        run: terraform validate -no-color
         working-directory: ./${{ env.ENV_LOWER }}
+        continue-on-error: true
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -input=false
+        if: steps.validate.outcome == 'success'
+        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -no-color -input=false
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
@@ -191,36 +193,50 @@ jobs:
         uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
         env:
-          PLAN: ${{ steps.plan.outputs.stdout }}
           FORMAT: ${{ steps.fmt.outputs.stdout }}
+          INIT: ${{ steps.init.outputs.stdout }}
+          VALIDATE: ${{ steps.validate.outputs.stdout }}
+          PLAN: ${{ steps.plan.outputs.stdout }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const format_output = `
             <details><summary>Show Format and Style Errors</summary>
-
             \`\`\`diff\n
-            ${process.env.FORMAT}
+            ${process.env.FORMAT} 
             \`\`\`
-
             </details>`;
 
-            const output = `### Terraform ${{ matrix.env }} Config
-            #### 🖌 Format and Style: \`${{ steps.fmt.outcome }}\`
-            ${{ steps.fmt.outcome == 'failure' && '${format_output}' }}
+            const init_output = `
+            <details><summary>Show Output</summary>
+            \`\`\`diff\n
+            ${process.env.INIT} 
+            \`\`\`
+            </details>`;
 
-            #### 🛠 Initialization: \`${{ steps.init.outcome }}\`
-            
-            #### 🔎 Validation: \`${{ steps.validate.outcome }}\`
-            #### 📖 Plan: \`${{ steps.plan.outcome }}\`
+            const validate_output = `
+            <details><summary>Show Validation Errors</summary>
+            \`\`\`diff\n
+            ${process.env.VALIDATE} 
+            \`\`\`
+            </details>`;
 
+            const plan_output = `
             <details><summary>Show Plan</summary>
-
-            \`\`\`terraform\n
-            ${process.env.PLAN}
+            \`\`\`diff\n
+            ${process.env.PLAN} 
             \`\`\`
-
             </details>`;
+
+            const output = `## 🏞 ${{ matrix.env }} - Terraform Config
+            ### 🖌 Format and Style: \`${{ steps.fmt.outcome }}\`
+            ${{ steps.fmt.outcome == 'failure' && '${format_output}' || '' }}
+            ### 🛠 Initialization: \`${{ steps.init.outcome }}\`
+            ${{ steps.init.outcome == 'failure' && '${init_output}' || '' }}
+            ### 🔎 Validation: \`${{ steps.validate.outcome }}\`
+            ${{ steps.validate.outcome == 'failure' && '${validate_output}' || '' }}
+            ### 📖 Plan: \`${{ steps.plan.outcome }}\`
+            ${{ steps.validate.outcome != 'skipped' && '${plan_output}' || '' }};
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
