@@ -26,6 +26,7 @@ provider "google" {
 resource "google_storage_bucket" "data_lake_buckets" {
   for_each                    = toset(local.buckets)
   name                        = each.key
+  location                    = local.region
   storage_class               = "STANDARD"
   public_access_prevention    = "enforced"
   uniform_bucket_level_access = true
