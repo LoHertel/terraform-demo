@@ -101,20 +101,26 @@ jobs:
       
       - name: Terraform Summary
         run: |
-          echo -e "::group::Format and Style: ${{ steps.fmt.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.fmt.outcome }} '\033[0m'"
+          # Terraform Summary for Format, Init, Validation and the Plan
+
+          echo -e "::group::Format and Style: ${{ steps.fmt.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.fmt.outcome }}\033[0m"
+          echo -e "${{ steps.fmt.outputs.stdout }}"
           echo -e "${{ steps.fmt.outputs.stderr }}"
           echo "::endgroup::"
 
-          echo -e "::group::Initialization: ${{ steps.init.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.init.outcome }} '\033[0m'"
+          echo -e "::group::Initialization: ${{ steps.init.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.init.outcome }}\033[0m"
           echo -e "${{ steps.init.outputs.stdout }}"
+          echo -e "${{ steps.init.outputs.stderr }}"
           echo "::endgroup::"
 
-          echo -e "::group::Validation: ${{ steps.validate.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.validate.outcome }} '\033[0m'"
+          echo -e "::group::Validation: ${{ steps.validate.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.validate.outcome }}\033[0m"
           echo -e "${{ steps.validate.outputs.stdout }}"
+          echo -e "${{ steps.validate.outputs.stderr }}"
           echo "::endgroup::"
 
-          echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.plan.outcome }} '\033[0m'"
-          echo -e '${{ steps.plan.outputs.stdout }}'
+          echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.plan.outcome }}\033[0m"
+          echo -e "${{ steps.plan.outputs.stdout }}"
+          echo -e "${{ steps.plan.outputs.stderr }}"
           echo "::endgroup::"
       
       - name: Update Pull Request
