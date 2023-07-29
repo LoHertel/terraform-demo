@@ -9,26 +9,118 @@ on:
       - '**.tf'
 
 jobs:
+  changed-envs:
+    name: Detect Changed Terraform Environments
+    runs-on: ubuntu-latest
+    outputs:
+      changed-envs: ${{ steps.set-changed-envs.outputs.changed-envs }}
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Filter Path
+        id: filter
+        uses: dorny/paths-filter@v2
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            Stage: 
+              - 'stage/**.tf'
+              - 'modules/**.tf'
+            Prod:
+              - 'prod/**.tf'
+              - 'modules/**.tf'
+
+      - name: Set Changed Environments
+        id: set-changed-envs
+        run: |
+          # detect changed terraform environment definitions in pull request
+          if [ ${{ github.event_name }} = 'pull_request' ]; then
+            echo "changed-envs=${{ steps.filter.outputs.changes }}" >> $GITHUB_OUTPUT
+          
+          # if workflow was started manually, use all terraform environments
+          else
+            echo "changed-envs=['Stage','Prod']" >> $GITHUB_OUTPUT
+          
+          fi
+
   terraform-plan:
+    needs: changed-envs
+    name: Plan for ${{ matrix.env }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        env: [Stage, Prod]
-    name: Plan for ${{ matrix.env }}
+        env: ${{ fromJSON(needs.changed-envs.outputs.changed-envs) }}
     permissions:
       pull-requests: write
     steps:
-      - name: Upper Name for Environment
+      - name: Set Uppercase Name for Environment
         id: env-upper
         run: echo "ENV_UPPER=$(echo ${{ matrix.env }} | tr [:lower:] [:upper:])" >> $GITHUB_ENV
       
-      - name: Lower Name for Environment
+      - name: Set Lowercase Name for Environment
         id: env-lower
         run: echo "ENV_LOWER=$(echo ${{ matrix.env }} | tr [:upper:] [:lower:])" >> $GITHUB_ENV
 
-      - name: Checkout
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout Base Branch
         uses: actions/checkout@v3
+        if: github.event_name == 'pull_request'
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      # Generate Infracost JSON file as the baseline.
+      - name: Generate Infracost cost estimate baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost breakdown --path=. \
+                              --format=json \
+                              --out-file=/tmp/infracost-base.json \
+                              --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
+        working-directory: ./${{ env.ENV_LOWER }}
+
+      - name: Checkout PR Branch
+        uses: actions/checkout@v3
+
+      # Generate an Infracost diff and save it to a JSON file.
+      - name: Generate Infracost diff
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost diff --path=. \
+                         --format=json \
+                         --compare-to=/tmp/infracost-base.json \
+                         --out-file=/tmp/infracost.json \
+                         --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
+        working-directory: ./${{ env.ENV_LOWER }}
+      
+      - name: Post Infracost comment
+        if: github.event_name == 'pull_request'
+        run: |
+            infracost comment github --path=/tmp/infracost.json \
+                                     --show-skipped \
+                                     --repo=$GITHUB_REPOSITORY \
+                                     --github-token=${{github.token}} \
+                                     --pull-request=${{github.event.pull_request.number}} \
+                                     --behavior=update \
+                                     --tag=infracost_${{ env.ENV_LOWER }}
+                                    
+      # Generate Infracost JSON file if workflow started manually
+      - name: Generate Infracost cost estimate
+        id: cost
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          infracost breakdown --path=. \
+                              --format=json \
+                              --out-file=/tmp/infracost.json \
+                              --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
+        working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -41,7 +133,7 @@ jobs:
 
       - name: Terraform Format
         id: fmt
-        run: terraform fmt -check
+        run: terraform fmt -check -diff -recursive . ../modules
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
@@ -52,28 +144,71 @@ jobs:
       
       - name: Terraform Validate
         id: validate
-        run: terraform validate -no-color
+        run: terraform validate
         working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -no-color -input=false
+        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -input=false
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
+      
+      - name: Terraform Summary
+        run: |
+          # Terraform Summary for Format, Init, Validation and the Plan
 
+          echo -e "::group::Format and Style: ${{ steps.fmt.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.fmt.outcome }}\033[0m"
+          echo -e "${{ steps.fmt.outputs.stderr }}"
+          echo -e "${{ steps.fmt.outputs.stdout }}"
+          echo "::endgroup::"
+
+          echo -e "::group::Initialization: ${{ steps.init.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.init.outcome }}\033[0m"
+          echo -e "${{ steps.init.outputs.stderr }}"
+          echo -e "${{ steps.init.outputs.stdout }}"
+          echo "::endgroup::"
+
+          echo -e "::group::Validation: ${{ steps.validate.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.validate.outcome }}\033[0m"
+          echo -e "${{ steps.validate.outputs.stderr }}"
+          echo -e "${{ steps.validate.outputs.stdout }}"
+          echo "::endgroup::"
+
+          echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.plan.outcome }}\033[0m"
+          echo -e "${{ steps.plan.outputs.stderr }}"
+          echo -e "${{ steps.plan.outputs.stdout }}"
+          echo "::endgroup::"
+
+          echo "::group::Cost Breakdown:"
+          infracost output --path=/tmp/infracost.json \
+                           --format=table \
+                           --show-skipped
+          echo "::endgroup::"
+      
       - name: Update Pull Request
         uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
         env:
           PLAN: ${{ steps.plan.outputs.stdout }}
+          FORMAT: ${{ steps.fmt.outputs.stdout }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `### ${{ matrix.env }} Environment 🏞
-            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            const format_output = `
+            <details><summary>Show Format and Style Errors</summary>
+
+            \`\`\`diff\n
+            ${process.env.FORMAT}
+            \`\`\`
+
+            </details>`;
+
+            const output = `### Terraform ${{ matrix.env }} Config
+            #### 🖌 Format and Style: \`${{ steps.fmt.outcome }}\`
+            ${{ steps.fmt.outcome == 'failure' && '${format_output}' }}
+
+            #### 🛠 Initialization: \`${{ steps.init.outcome }}\`
+            
+            #### 🔎 Validation: \`${{ steps.validate.outcome }}\`
+            #### 📖 Plan: \`${{ steps.plan.outcome }}\`
 
             <details><summary>Show Plan</summary>
 
@@ -81,9 +216,7 @@ jobs:
             ${process.env.PLAN}
             \`\`\`
 
-            </details>
-
-            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            </details>`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -95,7 +228,3 @@ jobs:
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
         run: exit 1
-
-      # - name: Terraform Apply
-      #  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #  run: terraform apply -auto-approve -var="project=${{ vars.GCP_PROJECT_ID }}" -input=false
