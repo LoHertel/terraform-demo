@@ -177,9 +177,9 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Cost Breakdown:"
-          infracost show --path=/tmp/infracost.json \
-                         --format=table \
-                         --show-skipped
+          infracost output --path=/tmp/infracost.json \
+                           --format=table \
+                           --show-skipped
           echo "::endgroup::"
       
       - name: Update Pull Request
