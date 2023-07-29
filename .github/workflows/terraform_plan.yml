@@ -101,19 +101,19 @@ jobs:
       
       - name: Terraform Summary
         run: |
-          echo -e "::group::Format and Style: ${{ steps.fmt.outcome == 'success' && '\033[32;1m' || '\033[31;1m' }} ${{ steps.fmt.outcome }} '\033[0m'"
-          echo -e "${{ steps.fmt.outputs.stdout }}"
+          echo -e "::group::Format and Style: ${{ steps.fmt.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.fmt.outcome }} '\033[0m'"
+          echo -e "${{ steps.fmt.outputs.stderr }}"
           echo "::endgroup::"
 
-          echo -e "::group::Initialization: ${{ steps.init.outcome == 'success' && '\033[32;1m' || '\033[31;1m' }} ${{ steps.init.outcome }} '\033[0m'"
+          echo -e "::group::Initialization: ${{ steps.init.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.init.outcome }} '\033[0m'"
           echo -e "${{ steps.init.outputs.stdout }}"
           echo "::endgroup::"
 
-          echo -e "::group::Validation: ${{ steps.validate.outcome == 'success' && '\033[32;1m' || '\033[31;1m' }} ${{ steps.validate.outcome }} '\033[0m'"
+          echo -e "::group::Validation: ${{ steps.validate.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.validate.outcome }} '\033[0m'"
           echo -e "${{ steps.validate.outputs.stdout }}"
           echo "::endgroup::"
 
-          echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31;1m' }} ${{ steps.plan.outcome }} '\033[0m'"
+          echo -e "::group::Plan: ${{ steps.plan.outcome == 'success' && '\033[32;1m' || '\033[31m' }} ${{ steps.plan.outcome }} '\033[0m'"
           echo -e '${{ steps.plan.outputs.stdout }}'
           echo "::endgroup::"
       
@@ -162,7 +162,3 @@ jobs:
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
         run: exit 1
-
-      # - name: Terraform Apply
-      #  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #  run: terraform apply -auto-approve -var="project=${{ vars.GCP_PROJECT_ID }}" -input=false
