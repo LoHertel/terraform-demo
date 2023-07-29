@@ -82,7 +82,8 @@ jobs:
         run: |
           infracost breakdown --path=. \
                               --format=json \
-                              --out-file=/tmp/infracost-base.json
+                              --out-file=/tmp/infracost-base.json \
+                              --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
         working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Checkout PR Branch
@@ -95,7 +96,8 @@ jobs:
           infracost diff --path=. \
                          --format=json \
                          --compare-to=/tmp/infracost-base.json \
-                         --out-file=/tmp/infracost.json
+                         --out-file=/tmp/infracost.json \
+                         --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
         working-directory: ./${{ env.ENV_LOWER }}
       
       - name: Post Infracost comment
@@ -105,15 +107,17 @@ jobs:
                                      --repo=$GITHUB_REPOSITORY \
                                      --github-token=${{github.token}} \
                                      --pull-request=${{github.event.pull_request.number}} \
-                                     --behavior=update
-
+                                     --behavior=update \
+                                     --tag=infracost_${{ env.ENV_LOWER }}
+                                    
       # Generate Infracost JSON file if workflow started manually
       - name: Generate Infracost cost estimate
         id: cost
         if: github.event_name == 'workflow_dispatch'
         run: |
           infracost breakdown --path=. \
-                              --format=table \
+                              --format=json \
+                              --out-file=/tmp/infracost.json \
                               --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
         working-directory: ./${{ env.ENV_LOWER }}
 
@@ -172,9 +176,10 @@ jobs:
           echo -e "${{ steps.plan.outputs.stdout }}"
           echo "::endgroup::"
 
-          echo -e "::group::Cost Breakdown: ${{ steps.cost.outcome == 'success' && '\033[32;1m' || '\033[31m' }}${{ steps.cost.outcome }}\033[0m"
-          echo -e "${{ steps.cost.outputs.stderr }}"
-          echo -e "${{ steps.cost.outputs.stdout }}"
+          echo "::group::Cost Breakdown:"
+          infracost show --path=/tmp/infracost.json \
+                         --format=table \
+                         --show-skipped
           echo "::endgroup::"
       
       - name: Update Pull Request
