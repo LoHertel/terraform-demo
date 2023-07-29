@@ -199,7 +199,7 @@ jobs:
             ### 🔎 Validation: \`${{ steps.validate.outcome }}\`
             ${{ steps.validate.outcome == 'failure' && '${validate_output}' || '' }}
             ### 📖 Plan: \`${{ steps.plan.outcome }}\`
-            ${{ steps.validate.outcome != 'skipped' && '${plan_output}' || '' }};
+            ${{ steps.validate.outcome != 'skipped' && '${plan_output}' || '' }}`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
