@@ -108,7 +108,7 @@ jobs:
                                      --repo=$GITHUB_REPOSITORY \
                                      --github-token=${{github.token}} \
                                      --pull-request=${{github.event.pull_request.number}} \
-                                     --behavior=update \
+                                     --behavior=new \
                                      --tag=infracost_${{ env.ENV_LOWER }}
                                     
       # Generate Infracost JSON file if workflow started manually
