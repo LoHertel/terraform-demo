@@ -38,13 +38,17 @@ jobs:
         run: |
           # detect changed terraform environment definitions in pull request
           if [ ${{ github.event_name }} = 'pull_request' ]; then
-            echo "changed-envs=${{ steps.filter.outputs.changes }}" >> $GITHUB_OUTPUT
+            echo 'changed-envs=${{ steps.filter.outputs.changes }}' >> $GITHUB_OUTPUT
           
           # if workflow was started manually, use all terraform environments
           else
-            echo "changed-envs=['Stage','Prod']" >> $GITHUB_OUTPUT
+            echo 'changed-envs=["Stage","Prod"]' >> $GITHUB_OUTPUT
           
           fi
+
+      - name: print
+        run: echo '${{ steps.set-changed-envs.outputs.changed-envs }}'
+
 
   terraform-plan:
     needs: changed-envs
