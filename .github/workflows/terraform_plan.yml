@@ -9,21 +9,65 @@ on:
       - '**.tf'
 
 jobs:
+  changed-envs:
+    name: Detect Changed Terraform Environments
+    runs-on: ubuntu-latest
+    outputs:
+      changed-envs: ${{ steps.set-changed-envs.outputs.changed-envs }}
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Filter Path
+        id: filter
+        uses: dorny/paths-filter@v2
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            stage: 
+              - 'stage/**'
+              - 'modules/**'
+            prod:
+              - 'prod/**'
+              - 'modules/**'
+
+      - name: Set Changed Environments
+        id: set-changed-envs
+        run: |
+          # detect changed terraform environment definitions in pull request
+          if [ ${{ github.event_name }} = 'pull_request' ]; then
+            envs=()
+            [ ${{ steps.filter.outputs.stage }} = 'true' ] && envs+=('Stage')
+            [ ${{ steps.filter.outputs.prod }} = 'true' ] && envs+=('Prod')
+          
+          # if workflow started manual, use all terraform environments
+          else
+            envs=('Stage', 'Prod')
+          
+          fi
+          
+          # convert bash array to json list
+          env_list=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${envs[@]}")             
+          echo "changed-envs=$env_list" >> $GITHUB_OUTPUT
+
   terraform-plan:
+    needs: changed-envs
+    name: Plan for ${{ matrix.env }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        env: [Stage, Prod]
-    name: Plan for ${{ matrix.env }}
+        env: ${{ fromJSON(needs.changed-envs.outputs.changed-envs) }}
     permissions:
       pull-requests: write
     steps:
-      - name: Upper Name for Environment
+      - name: Set Uppercase Name for Environment
         id: env-upper
         run: echo "ENV_UPPER=$(echo ${{ matrix.env }} | tr [:lower:] [:upper:])" >> $GITHUB_ENV
       
-      - name: Lower Name for Environment
+      - name: Set Lowercase Name for Environment
         id: env-lower
         run: echo "ENV_LOWER=$(echo ${{ matrix.env }} | tr [:upper:] [:lower:])" >> $GITHUB_ENV
 
@@ -41,7 +85,7 @@ jobs:
 
       - name: Terraform Format
         id: fmt
-        run: terraform fmt -check
+        run: terraform fmt -check -diff -recursive -no-color . ../modules
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
@@ -66,14 +110,27 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           PLAN: ${{ steps.plan.outputs.stdout }}
+          FORMAT: ${{ steps.fmt.outputs.stdout }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `### ${{ matrix.env }} Environment 🏞
-            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            const format_output = `
+            <details><summary>Show Format and Style Errors</summary>
+
+            \`\`\`diff\n
+            ${process.env.FORMAT}
+            \`\`\`
+
+            </details>`;
+
+            const output = `### Terraform ${{ matrix.env }} Config
+            #### 🖌 Format and Style: \`${{ steps.fmt.outcome }}\`
+            ${{ steps.fmt.outcome == 'failure' && '${format_output}' }}
+
+            #### 🛠 Initialization: \`${{ steps.init.outcome }}\`
+            
+            #### 🔎 Validation: \`${{ steps.validate.outcome }}\`
+            #### 📖 Plan: \`${{ steps.plan.outcome }}\`
 
             <details><summary>Show Plan</summary>
 
@@ -81,9 +138,7 @@ jobs:
             ${process.env.PLAN}
             \`\`\`
 
-            </details>
-
-            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            </details>`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
