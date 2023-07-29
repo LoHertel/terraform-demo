@@ -79,7 +79,7 @@ jobs:
 
       - name: Terraform Format
         id: fmt
-        run: terraform fmt -check -diff -recursive -no-color . ../modules
+        run: terraform fmt -check -diff -recursive . ../modules
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
       
@@ -90,15 +90,33 @@ jobs:
       
       - name: Terraform Validate
         id: validate
-        run: terraform validate -no-color
+        run: terraform validate
         working-directory: ./${{ env.ENV_LOWER }}
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -no-color -input=false
+        run: terraform plan -var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}" -input=false
         working-directory: ./${{ env.ENV_LOWER }}
         continue-on-error: true
+      
+      - name: Terraform Status
+        run: |
+          echo "::group::Format and Style: ${{ steps.fmt.outcome }}"
+          ${{ steps.fmt.outcome == 'failure' && steps.fmt.outputs.stdout }}
+          echo "::endgroup::"
 
+          echo "::group::Initialization: ${{ steps.init.outcome }}"
+          ${{ steps.init.outcome == 'failure' && steps.init.outputs.stdout }}
+          echo "::endgroup::"
+
+          echo "::group::Validation: ${{ steps.validate.outcome }}"
+          ${{ steps.validate.outcome == 'failure' && steps.validate.outputs.stdout }}
+          echo "::endgroup::"
+
+          echo "::group::Plan: ${{ steps.plan.outcome }}"
+          ${{ steps.plan.outputs.stdout }}
+          echo "::endgroup::"
+      
       - name: Update Pull Request
         uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
