@@ -69,52 +69,15 @@ jobs:
         id: env-lower
         run: echo "ENV_LOWER=$(echo ${{ matrix.env }} | tr [:upper:] [:lower:])" >> $GITHUB_ENV
 
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Setup Infracost
         uses: infracost/actions/setup@v2
+        if: github.event_name == 'workflow_dispatch'
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
-
-      - name: Checkout Base Branch
-        uses: actions/checkout@v3
-        if: github.event_name == 'pull_request'
-        with:
-          ref: '${{ github.event.pull_request.base.ref }}'
-
-      # Generate Infracost JSON file as the baseline.
-      - name: Generate Infracost cost estimate baseline
-        if: github.event_name == 'pull_request'
-        run: |
-          infracost breakdown --path=. \
-                              --format=json \
-                              --out-file=/tmp/infracost-base.json \
-                              --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
-        working-directory: ./${{ env.ENV_LOWER }}
-
-      - name: Checkout PR Branch
-        uses: actions/checkout@v3
-
-      # Generate an Infracost diff and save it to a JSON file.
-      - name: Generate Infracost diff
-        if: github.event_name == 'pull_request'
-        run: |
-          infracost diff --path=. \
-                         --format=json \
-                         --compare-to=/tmp/infracost-base.json \
-                         --out-file=/tmp/infracost.json \
-                         --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
-        working-directory: ./${{ env.ENV_LOWER }}
       
-      - name: Post Infracost comment
-        if: github.event_name == 'pull_request'
-        run: |
-            infracost comment github --path=/tmp/infracost.json \
-                                     --show-skipped \
-                                     --repo=$GITHUB_REPOSITORY \
-                                     --github-token=${{github.token}} \
-                                     --pull-request=${{github.event.pull_request.number}} \
-                                     --behavior=new \
-                                     --tag=infracost_${{ env.ENV_LOWER }}
-                                    
       # Generate Infracost JSON file if workflow started manually
       - name: Generate Infracost cost estimate
         id: cost
@@ -125,6 +88,7 @@ jobs:
                               --out-file=/tmp/infracost.json \
                               --terraform-var="project=${{ vars[format('GCP_PROJECT_ID_{0}', env.ENV_UPPER)] }}"
         working-directory: ./${{ env.ENV_LOWER }}
+        continue-on-error: true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -248,3 +212,70 @@ jobs:
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
         run: exit 1
+
+  infracost:
+    needs: changed-envs
+    name: Infrastructure Cost Breakdown for PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout Base Branch
+        uses: actions/checkout@v3
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      # Generate Infracost JSON file as the baseline.
+      - name: Generate Stage Infracost cost estimate baseline
+        if: contains(fromJSON(needs.changed-envs.outputs.changed-envs), 'Stage')
+        run: |
+          infracost breakdown --path=stage \
+                              --format=json \
+                              --out-file=/tmp/infracost-base-stage.json \
+                              --terraform-var="project=${{ vars.GCP_PROJECT_ID_STAGE }}"
+      
+      - name: Generate Prod Infracost cost estimate baseline
+        if: contains(fromJSON(needs.changed-envs.outputs.changed-envs), 'Prod')
+        run: |
+          infracost breakdown --path=prod \
+                              --format=json \
+                              --out-file=/tmp/infracost-base-prod.json \
+                              --terraform-var="project=${{ vars.GCP_PROJECT_ID_PROD }}"
+
+      - name: Checkout PR Branch
+        uses: actions/checkout@v3
+
+      # Generate an Infracost diff and save it to a JSON file.
+      - name: Generate Stage Infracost diff
+        if: contains(fromJSON(needs.changed-envs.outputs.changed-envs), 'Stage')
+        run: |
+          infracost diff --path=stage \
+                        --format=json \
+                        --compare-to=/tmp/infracost-base-stage.json \
+                        --out-file=/tmp/infracost-diff-stage.json \
+                        --terraform-var="project=${{ vars.GCP_PROJECT_ID_STAGE }}"
+      
+      - name: Generate Prod Infracost diff
+        if: contains(fromJSON(needs.changed-envs.outputs.changed-envs), 'Prod')
+        run: |
+          infracost diff --path=prod \
+                        --format=json \
+                        --compare-to=/tmp/infracost-base-prod.json \
+                        --out-file=/tmp/infracost-diff-prod.json \
+                        --terraform-var="project=${{ vars.GCP_PROJECT_ID_PROD }}"
+      
+      - name: Post Infracost comment to PR
+        run: |
+            infracost comment github --path="/tmp/infracost-diff-*.json" \
+                                    --show-skipped \
+                                    --show-all-projects \
+                                    --repo=$GITHUB_REPOSITORY \
+                                    --github-token=${{github.token}} \
+                                    --pull-request=${{github.event.pull_request.number}} \
+                                    --behavior=new
