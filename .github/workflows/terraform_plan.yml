@@ -42,9 +42,9 @@ jobs:
             [ ${{ steps.filter.outputs.stage }} = 'true' ] && envs+=('Stage')
             [ ${{ steps.filter.outputs.prod }} = 'true' ] && envs+=('Prod')
           
-          # if workflow started manual, use all terraform environments
+          # if workflow started manually, use all terraform environments
           else
-            envs=('Stage', 'Prod')
+            envs=('Stage' 'Prod')
           
           fi
           
