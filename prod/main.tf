@@ -9,7 +9,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 4.69, < 5.0"
+      version = ">= 4.75.1, < 5.0"
     }
   }
 }
@@ -87,5 +87,5 @@ resource "google_compute_firewall" "ssh-server" {
 }
 
 output "ip" {
-  value = "${google_compute_instance.etl-host.network_interface.0.access_config.0.nat_ip}"
+  value = google_compute_instance.etl-host.network_interface.0.access_config.0.nat_ip
 }

@@ -5,10 +5,10 @@ locals {
   project     = var.project
   region      = var.region
   zone        = "${var.region}-${var.zone_suffix}"
-  name_suffix = "${local.project}-${local.region}"
+  name_prefix = "${local.project}-${local.region}"
   buckets = [
-    "${local.name_suffix}-data-lake",
-    "${local.name_suffix}-data-lake-anon"
+    "${local.name_prefix}-data-lake",
+    "${local.name_prefix}-data-lake-anonymized"
   ]
 }
 
